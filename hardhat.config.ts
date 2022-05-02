@@ -1,14 +1,17 @@
-import { config as dotenvConfig } from "dotenv";
-import { join, resolve } from "path";
-
-import { HardhatUserConfig, task } from "hardhat/config";
-import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
-import "hardhat-gas-reporter";
-import "solidity-coverage";
-import { NetworkUserConfig } from "hardhat/types";
+import "@nomiclabs/hardhat-etherscan";
+import { config as dotenvConfig } from "dotenv";
 import { readdirSync } from "fs";
+import "hardhat-contract-sizer";
+import "hardhat-deploy";
+import "hardhat-gas-reporter";
+import { HardhatUserConfig } from "hardhat/config";
+import { NetworkUserConfig } from "hardhat/types";
+import { join, resolve } from "path";
+import "solidity-coverage";
+import "@openzeppelin/hardhat-upgrades";
+require("hardhat-contract-sizer");
 
 dotenvConfig({ path: resolve(__dirname, "./.env") });
 
@@ -33,6 +36,7 @@ const chainIds = {
   eth: 1,
 };
 
+// Ensure that we have all the environment variables we need.
 const deployerPrivateKey: string | undefined = process.env.DEPLOYER_PRIVATE_KEY;
 if (!deployerPrivateKey) {
   throw new Error("Please set your DEPLOYER_PRIVATE_KEY in a .env file");
@@ -57,9 +61,9 @@ function getChainConfig(network: keyof typeof chainIds): NetworkUserConfig {
     url = "https://bsc-dataseed.binance.org/";
   }
 
-  // if (network === 'eth') {
-  //   url = 'https://mainnet.infura.io/v3/' + infuraApiKey;
-  // }
+  if (network === "eth") {
+    url = "https://mainnet.infura.io/v3/" + infuraApiKey;
+  }
 
   return {
     accounts: [`0x${deployerPrivateKey}`],
@@ -69,7 +73,6 @@ function getChainConfig(network: keyof typeof chainIds): NetworkUserConfig {
 }
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.2",
   defaultNetwork: "hardhat",
   gasReporter: {
     currency: "USD",
@@ -80,16 +83,47 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       chainId: chainIds.hardhat,
-      // accounts: [{
-      //   privateKey: process.env.DEPLOYER_PRIVATE_KEY || "",
-      //   balance: "1000000000000000000000000"
-      // }]
     },
-    bsctestnet: getChainConfig("bsctestnet"),
+    goerli: getChainConfig("goerli"),
+    kovan: getChainConfig("kovan"),
+    rinkeby: getChainConfig("rinkeby"),
     ropsten: getChainConfig("ropsten"),
+    polygon: getChainConfig("polygon"),
+    bsctestnet: getChainConfig("bsctestnet"),
+    bsc: getChainConfig("bsc"),
+    eth: getChainConfig("eth"),
   },
   etherscan: {
+    // Your API key for Etherscan
     apiKey: process.env.ETHERSCAN_API_KEY,
+  },
+  paths: {
+    artifacts: "./artifacts",
+    cache: "./cache",
+    sources: "./contracts",
+    tests: "./test",
+    deploy: "./deployments/migrations",
+    deployments: "./deployments/artifacts",
+  },
+  solidity: {
+    compilers: [
+      {
+        version: "0.8.2",
+        settings: {
+          metadata: {
+            bytecodeHash: "none",
+          },
+          optimizer: {
+            enabled: true,
+            runs: 800,
+          },
+        },
+      },
+    ],
+  },
+  typechain: {
+    outDir: "typechain",
+    target: "ethers-v5",
   },
 };
 
