@@ -32,7 +32,7 @@ describe("StakingPool Contract", () => {
     usdt.mint(addr1.address, 100);
 
     // approve token
-    usdt.connect(owner).approve(addr1.address, 10000);
+    usdt.connect(addr1).approve(stakingPool.address, 10000);
 
     const balanceOfAddr1 = await usdt.balanceOf(addr1.address);
     console.log("balanceOfAddr1: ", balanceOfAddr1);
