@@ -29,7 +29,7 @@ describe("StakingPool Contract", () => {
     stakingPool = await StakingPool.deploy();
 
     // mint token
-    usdt.mint(addr1.address, 100);
+    usdt.mint(addr1.address, 10000);
 
     // approve token
     usdt.connect(addr1).approve(stakingPool.address, 10000);
@@ -60,9 +60,38 @@ describe("StakingPool Contract", () => {
       await stakingPool
         .connect(owner)
         .createPool(usdt.address, 1000, 30, 0, 600);
-      console.log("addr1: ", addr1.address);
-      console.log("owner: ", owner.address);
+
+      const contract = new ethers.Contract(
+        stakingPool.address,
+        StakingPoolABI.abi,
+        ethers.provider
+      );
+
+      const res = await stakingPool.connect(addr1).deposit(0, 100);
+
+      const eventFilter2 = contract.filters.StakingPoolDeposit();
+
+      const events2 = await contract.queryFilter(
+        eventFilter2,
+        res.blockNumber,
+        res.blockNumber
+      );
+
+      expect(events2[0].args?.amount).to.equal(100);
+    });
+  });
+
+  describe("test withdraw function", () => {
+    it("withdraw success", async () => {
+      await stakingPool
+        .connect(owner)
+        .createPool(usdt.address, 1000, 30, 0, 600);
       await stakingPool.connect(addr1).deposit(0, 100);
+      await stakingPool.connect(addr1).deposit(0, 200);
+      console.log("total: ", await stakingPool.totalStakedOfPool(0));
+      await stakingPool.connect(addr1).withdraw(0, 100, 0);
+      console.log("total: ", await stakingPool.totalStakedOfPool(0));
+      expect(await stakingPool.totalStakedOfPool(0)).to.equal(200);
     });
   });
 });
