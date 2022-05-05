@@ -206,7 +206,7 @@ contract StakingPool is
         uint256 countWithdrawal = user.totalWithdrawalsCount[_stakedId];
         uint256 totalReward = 0;
         for(uint256 i = 0; i < countWithdrawal; i++) {
-            totalReward += user.totalWithdrawals[_stakedId][i] * userStaking.APR;
+            totalReward += user.totalWithdrawals[_stakedId][i] * userStaking.APR / 1e20;
         }
         console.log('address.this: ', address(this));
 
@@ -241,7 +241,7 @@ contract StakingPool is
         UserStakingData storage userStaking = user.stakingDatas[_stakedId];
 
         totalReward = 0;
-        uint256 pendingReward = userStaking.balance * userStaking.APR;
+        uint256 pendingReward = userStaking.balance * userStaking.APR / 1e20;
         totalReward = pendingReward;
         return totalReward;
     }
