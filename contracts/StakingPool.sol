@@ -97,7 +97,6 @@ contract StakingPool is
         __Pausable_init();
 
         coldWalletAddress = address(0xf42857DA0Bf94d8C57Bc9aE62cfAAE3722ed9DAb);
-        
     }
 
     function createPool(
@@ -141,12 +140,11 @@ contract StakingPool is
 
         require(
             coldWalletAddress != address(0),
-            "Cold Wallet address is not address 0"
+            "StakingPool: Cold Wallet address is not address 0"
         );
 
         pool.acceptedToken.transferFrom(account, coldWalletAddress, _amount);
-        // console.log("user:", user);
-
+        
         uint256 recordId = user.stakingDataRecordCount++;
         user.stakingDatas[recordId] = UserStakingData({
             balance: _amount,
@@ -208,7 +206,6 @@ contract StakingPool is
         for(uint256 i = 0; i < countWithdrawal; i++) {
             totalReward += user.totalWithdrawals[_stakedId][i] * userStaking.APR / 1e20;
         }
-        console.log('address.this: ', address(this));
 
         // uint256 rewardAmount = user.totalWithdrawals[_stakedId][countWithdrawal];
         require(
@@ -240,7 +237,7 @@ contract StakingPool is
         StakingData storage user = userStakingData[_poolId][_account];
         UserStakingData storage userStaking = user.stakingDatas[_stakedId];
 
-        totalReward = 0;
+        uint256 totalReward = 0;
         uint256 pendingReward = userStaking.balance * userStaking.APR / 1e20;
         totalReward = pendingReward;
         return totalReward;
@@ -248,5 +245,9 @@ contract StakingPool is
 
     function setRewardDistributor(address _account) external {
         rewardDistributor = _account;    
+    }
+
+    function setColdWalletAddress(address _account) external {
+        coldWalletAddress = _account;
     }
 }
