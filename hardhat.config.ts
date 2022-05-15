@@ -10,7 +10,6 @@ import { HardhatUserConfig } from "hardhat/config";
 import { NetworkUserConfig } from "hardhat/types";
 import { join, resolve } from "path";
 import "solidity-coverage";
-import "@openzeppelin/hardhat-upgrades";
 require("hardhat-contract-sizer");
 
 dotenvConfig({ path: resolve(__dirname, "./.env") });
@@ -76,13 +75,17 @@ const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   gasReporter: {
     currency: "USD",
-    enabled: !!process.env.REPORT_GAS,
+    enabled: process.env.REPORT_GAS ? true : false,
     excludeContracts: [],
     src: "./contracts",
   },
   networks: {
     hardhat: {
       chainId: chainIds.hardhat,
+      // accounts: [{
+      //   privateKey: process.env.DEPLOYER_PRIVATE_KEY || "",
+      //   balance: "1000000000000000000000000"
+      // }]
     },
     goerli: getChainConfig("goerli"),
     kovan: getChainConfig("kovan"),
@@ -109,10 +112,17 @@ const config: HardhatUserConfig = {
     compilers: [
       {
         version: "0.8.2",
+      },
+      {
+        version: "0.8.2",
         settings: {
           metadata: {
+            // Not including the metadata hash
+            // https://github.com/paulrberg/solidity-template/issues/31
             bytecodeHash: "none",
           },
+          // Disable the optimizer when debugging
+          // https://hardhat.org/hardhat-network/#solidity-optimizer-support
           optimizer: {
             enabled: true,
             runs: 800,
@@ -124,6 +134,9 @@ const config: HardhatUserConfig = {
   typechain: {
     outDir: "typechain",
     target: "ethers-v5",
+  },
+  namedAccounts: {
+    deployer: 0,
   },
 };
 

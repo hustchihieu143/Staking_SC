@@ -15,31 +15,12 @@ const func: DeployFunction = async function (
   const { deployer } = await getNamedAccounts();
   console.log("deployer: ", deployer);
 
-  // const StableFinancePoolFactory = await ethers.getContractFactory(
-  //   "StakingPool"
-  // );
-  // const stableFinancePool = await StableFinancePoolFactory.deploy();
-  // await stableFinancePool.deployed();
-
-  // console.log(`Deployed success at address ${stableFinancePool.address}`);
-  // console.log(`Start init`);
-
-  // await stableFinancePool.__StakingPool_init();
-  // console.log("Done");
-  await deploy("StakingPool", {
+  await deploy("MockUSDT", {
     from: deployer,
     log: true,
     args: [],
-    proxy: {
-      proxyContract: "OptimizedTransparentProxy",
-      owner: deployer,
-      execute: {
-        methodName: "__StakingPool_init",
-        args: [],
-      },
-    },
   });
 };
 
-func.tags = ["StakingPool"];
+func.tags = ["mockToken"];
 export default func;
