@@ -80,7 +80,7 @@ contract StakingPool is
         uint256 APR
     );
 
-    event StakingPoolDeposit(uint256 pooolId, uint256 amount, uint256 stakedId);
+    event StakingPoolDeposit(uint256 poolId, uint256 amount, uint256 stakedId);
     event StakingPoolWithdraw(uint256 poolId, uint256 amount, uint256 stakedId);
     event StakingPoolClaimReward(uint256 poolId, uint256 totalReward, uint256 stakedId);
 

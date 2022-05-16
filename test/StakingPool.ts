@@ -27,6 +27,7 @@ describe("StakingPool Contract", () => {
     // deploy staking-pool
     StakingPool = await ethers.getContractFactory("StakingPool");
     stakingPool = await StakingPool.deploy();
+    console.log("stakingPool.address: ", stakingPool.address);
 
     // mint token
     usdt.mint(addr1.address, BigNumber.from(toWei("10000")));
