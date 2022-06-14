@@ -25,6 +25,8 @@ contract StakingPool is
     // hash role super admin
     bytes32 public constant SUPER_ADMIN = keccak256("SUPER_ADMIN");
 
+    uint32 private constant ONE_YEAR = 365 days;
+
     // The reward distribution address
     address public rewardDistributor;
 
@@ -57,17 +59,17 @@ contract StakingPool is
     }
 
     // data withdraw of user
-    // struct UserPendingWithdrawl {
-    //     uint256 amount;
-    //     uint256 applicableAt;
-    // }
+    struct UserPendingWithdrawl {
+        uint256 amount;
+        uint256 applicableAt;
+    }
 
     // data of all user
     struct StakingData {
         uint256 balance;
         uint256 stakingDataRecordCount;
         mapping(uint256 => UserStakingData) stakingDatas;
-        mapping(uint256 => mapping(uint256 => uint256)) totalWithdrawals;
+        mapping(uint256 => mapping(uint256 => UserPendingWithdrawl)) totalWithdrawals;
         mapping(uint256 => uint256) totalWithdrawalsCount;
     }
 
@@ -75,20 +77,19 @@ contract StakingPool is
         uint256 indexed poolId,
         IERC20 acceptedToken,
         uint256 cap,
+        uint256 APR,
         uint256 lockDuration,
-        uint256 delayDuration,
-        uint256 APR
+        uint256 delayDuration      
     );
 
-    event StakingPoolDeposit(uint256 poolId, uint256 amount, uint256 stakedId);
-    event StakingPoolWithdraw(uint256 poolId, uint256 amount, uint256 stakedId);
-    event StakingPoolClaimReward(uint256 poolId, uint256 totalReward, uint256 stakedId);
+    event StakingPoolDeposit(address account, uint256 poolId, uint256 amount, uint256 stakedId, uint256 time);
+    event StakingPoolWithdraw(address account, uint256 poolId, uint256 amount, uint256 stakedId, uint256 time);
+    event StakingPoolClaimReward(address account, uint256 poolId, uint256 totalReward, uint256 stakedId, uint256 time);
 
     function __StakingPool_init() public initializer {
         __AccessControl_init(); 
         _setRoleAdmin(ADMIN, SUPER_ADMIN);
         _setupRole(SUPER_ADMIN, msg.sender);
-
         _setupRole(ADMIN, msg.sender);
         // set owner is msg.sender
         __Ownable_init(); 
@@ -124,11 +125,9 @@ contract StakingPool is
             poolInfo.length - 1,
             _acceptedToken,
             _cap,
-            // _minInvestment,
-            // _maxInvestment,
-            _APR,
+             _APR,
             _lockDuration,
-            _delayDuration
+            _delayDuration  
         );
     }
 
@@ -156,7 +155,7 @@ contract StakingPool is
         user.balance += _amount;
         pool.totalStaked += _amount;
 
-        emit StakingPoolDeposit(_poolId, _amount, recordId);
+        emit StakingPoolDeposit(account, _poolId, _amount, recordId, block.timestamp);
     }
 
     function withdraw(uint256 _poolId, uint256 _amount, uint256 _stakedId) external {
@@ -181,18 +180,18 @@ contract StakingPool is
         userStaking.pendingReward += _getPendingReward(_poolId, account, _stakedId);
 
         uint256 countWithdrawal = user.totalWithdrawalsCount[_stakedId]++;
-        user.totalWithdrawals[_stakedId][countWithdrawal] = _amount;
+        user.totalWithdrawals[_stakedId][countWithdrawal] = UserPendingWithdrawl({amount: _amount, applicableAt: currentTime});
 
 
         pool.totalStaked -= _amount;
         user.balance -= _amount;
         userStaking.balance -= _amount;
         
-        emit StakingPoolWithdraw(_poolId, _amount, _stakedId);
+        emit StakingPoolWithdraw(account, _poolId, _amount, _stakedId, currentTime);
     } 
 
     function claimRewardPool(uint256 _poolId, uint256 _stakedId) external {
-        _claimReward(_poolId, _stakedId);    
+        _claimReward(_poolId, _stakedId);
     }
 
     function _claimReward(uint256 _poolId, uint256 _stakedId) private {
@@ -202,22 +201,25 @@ contract StakingPool is
         UserStakingData storage userStaking = user.stakingDatas[_stakedId];
 
         uint256 countWithdrawal = user.totalWithdrawalsCount[_stakedId];
+        uint256 totalToken = 0;
         uint256 totalReward = 0;
         for(uint256 i = 0; i < countWithdrawal; i++) {
-            totalReward += user.totalWithdrawals[_stakedId][i] * userStaking.APR / 1e20;
+            totalReward += ((user.totalWithdrawals[_stakedId][i].amount * userStaking.APR * (user.totalWithdrawals[_stakedId][i].applicableAt - userStaking.stakeTime)) / ONE_YEAR) / 1e20;
+            totalToken += totalReward + user.totalWithdrawals[_stakedId][i].amount;
         }
 
         // uint256 rewardAmount = user.totalWithdrawals[_stakedId][countWithdrawal];
+        // console.log('totalReward: ',totalReward);
         require(
-            totalReward > 0,
+            totalToken > 0,
             "StakingPool: nothing is currently pending or not realese yet"
         );
 
         userStaking.pendingReward -= totalReward;
 
-        pool.acceptedToken.transferFrom(rewardDistributor, account, totalReward);
+        pool.acceptedToken.transferFrom(rewardDistributor, account, totalToken  );
 
-        emit StakingPoolClaimReward(_poolId, totalReward, _stakedId);
+        emit StakingPoolClaimReward(account, _poolId, totalToken , _stakedId, block.timestamp);
     }
 
     function totalStakedOfPool(uint256 _poolId) external view returns(uint256 totalStaked) {
@@ -225,23 +227,46 @@ contract StakingPool is
         return totalStaked;
     }
 
-    function getPendingReward(uint256 _poolId, uint256 _stakedId) external view returns(uint256 pendingReward) {
-        StakingData storage user = userStakingData[_poolId][msg.sender];
-        UserStakingData storage userStaking = user.stakingDatas[_stakedId];
-        uint256 pendingReward = userStaking.pendingReward;
-        return pendingReward;
-    }
-    
-
-    function _getPendingReward(uint256 _poolId, address _account, uint256 _stakedId) private view returns(uint256 totalReward) {
+    function _getPendingReward(uint256 _poolId, address _account, uint256 _stakedId) public view returns(uint256 pendingReward) {
         StakingData storage user = userStakingData[_poolId][_account];
         UserStakingData storage userStaking = user.stakingDatas[_stakedId];
 
+        console.log('userStaking.balance:',userStaking.balance);
+        uint256 timeInSecond = block.timestamp  - userStaking.stakeTime;
+        uint256 pendingReward = ((userStaking.balance * userStaking.APR * timeInSecond) / ONE_YEAR) / 1e20;
+        return pendingReward;
+    }
+
+    function getPendingReward(uint256 _poolId, address _account, uint256 _stakedId) external view returns(uint256) {
+        StakingData storage user = userStakingData[_poolId][_account];
+        UserStakingData storage userStaking = user.stakingDatas[_stakedId];
+        // uint256 pendingReward = userStaking.pendingReward;
+        // return pendingReward;
+        uint256 pendingReward = _getPendingReward(_poolId, _account, _stakedId) + userStaking.pendingReward;
+        return pendingReward;
+    }
+
+    function getTotalReward(uint256 _poolId, address _account) external view returns(uint256 totalReward) {
+        StakingPoolInfo storage pool = poolInfo[_poolId];
+        StakingData storage user = userStakingData[_poolId][_account];
+
+        uint256 len = user.stakingDataRecordCount;
+        console.log('len: ',len);
         uint256 totalReward = 0;
-        uint256 pendingReward = userStaking.balance * userStaking.APR / 1e20;
-        totalReward = pendingReward;
+        for(uint256 i = 0; i < len; i++) {
+            totalReward += _getPendingReward(_poolId, _account, i) + user.stakingDatas[i].pendingReward;
+        }
+        
         return totalReward;
     }
+
+    function getInfoStaking(uint256 _poolId, address _account, uint256 _stakedId) external view returns(UserStakingData memory) {
+        StakingData storage user = userStakingData[_poolId][_account];
+        UserStakingData storage userStaking = user.stakingDatas[_stakedId];
+        return userStaking;
+    }
+
+
 
     function setRewardDistributor(address _account) external {
         rewardDistributor = _account;    
@@ -249,5 +274,11 @@ contract StakingPool is
 
     function setColdWalletAddress(address _account) external {
         coldWalletAddress = _account;
+    }
+
+    function getBalanceOfStakingPool(address _account, uint256 _poolId, uint256 _stakedId) external view returns (uint256) {
+        StakingData storage user = userStakingData[_poolId][_account];
+        UserStakingData storage userStaking = user.stakingDatas[_stakedId];
+        return userStaking.balance;
     }
 }

@@ -53,7 +53,7 @@ function getChainConfig(network: keyof typeof chainIds): NetworkUserConfig {
   }
 
   if (network === "bsctestnet") {
-    url = "https://data-seed-prebsc-1-s1.binance.org:8545/";
+    url = "https://data-seed-prebsc-2-s1.binance.org:8545/";
   }
 
   if (network === "bsc") {
